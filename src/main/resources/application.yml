@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: Spring boot
+  datasource:
+    url: jdbc:mysql://localhost:3307/oauth
+    username: allang
+    password: cnd80751xh
+    driverClassName: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+server:
+  port: 8083
+
+
