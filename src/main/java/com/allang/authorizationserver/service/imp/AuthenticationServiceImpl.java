@@ -1,31 +1,27 @@
 package com.allang.authorizationserver.service.imp;
 
 import com.allang.authorizationserver.config.KeyGenerator;
+import com.allang.authorizationserver.dto.AccessToken;
 import com.allang.authorizationserver.dto.CreateUserRequest;
 import com.allang.authorizationserver.entity.AppUser;
 import com.allang.authorizationserver.entity.Client;
+import com.allang.authorizationserver.exceptions.exception.ParameterExists;
 import com.allang.authorizationserver.repository.AppUserRepository;
 import com.allang.authorizationserver.repository.ClientRepository;
 import com.allang.authorizationserver.repository.JpaRegisteredClientRepository;
 import com.allang.authorizationserver.service.AuthenticationService;
 import com.nimbusds.jose.shaded.gson.JsonObject;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
-import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
-import java.util.Random;
 import java.util.UUID;
-import java.util.random.RandomGenerator;
 
 @Service
 public class AuthenticationServiceImpl implements AuthenticationService {
@@ -43,50 +39,57 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         this.registeredClientRepository = registeredClientRepository;
     }
 
-    @Override
-    public Object registerUser(CreateUserRequest request) {
-        AppUser appUser = AppUser.builder()
-                .username(request.getUsername())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .email(request.getEmail())
-                .build();
-        appUserRepository.save(appUser);
-        JsonObject jsonObject = new JsonObject();
-        jsonObject.addProperty("username", request.getUsername());
-        jsonObject.addProperty("email", request.getEmail());
-        jsonObject.addProperty("createdAt", String.valueOf(LocalDateTime.now()));
-        return jsonObject;
-    }
+
 
     @Override
-    public Object registerClient(String clientNameId){
-        Optional<AppUser> user = appUserRepository.findById(clientNameId);
-        if (user.isEmpty()){
-            JsonObject jsonObject = new JsonObject();
-            jsonObject.addProperty("error", "User not found");
-            return jsonObject;
-        }
+    public AccessToken registerClient(CreateUserRequest userRequest){
        String[] clientCredentials = keyGenerator.generateRandomPairOfKeys();
         Client newClient = Client.builder()
                 .id(UUID.randomUUID().toString())
                 .clientId(clientCredentials[0])
                 .clientSecret(passwordEncoder.encode(clientCredentials[1]))
-                .clientName("Allang")
+                .clientName(userRequest.getUsername())
                 .clientIdIssuedAt(LocalDateTime.now().toInstant(ZoneOffset.of("+3")))
                 .clientSecretExpiresAt(LocalDateTime.now().plusDays(1).toInstant(ZoneOffset.of("+3")))
-                .clientAuthenticationMethods(ClientAuthenticationMethod.CLIENT_SECRET_BASIC.getValue())
-                .authorizationGrantTypes(AuthorizationGrantType.CLIENT_CREDENTIALS.getValue())
-                .scopes("message_read,message_write,"+ OidcScopes.PROFILE)
+                .clientAuthenticationMethods(""+ClientAuthenticationMethod.CLIENT_SECRET_BASIC.getValue()+","+ ClientAuthenticationMethod.CLIENT_SECRET_POST.getValue())
+                .authorizationGrantTypes(""+AuthorizationGrantType.CLIENT_CREDENTIALS.getValue()+","+AuthorizationGrantType.REFRESH_TOKEN)
+                .scopes("message_read,message_write,openid")
                 .redirectUris("http://127.0.0.1:8080/authorized")
-                .appUser(user.get())
                 .build();
         RegisteredClient registeredClient = registeredClientRepository.toObject(newClient);
 
-        registeredClientRepository.save(registeredClient);
-        JsonObject jsonObject = new JsonObject();
-        jsonObject.addProperty("clientId", clientCredentials[0]);
-        jsonObject.addProperty("clientSecret", clientCredentials[1]);
-        return jsonObject;
+        if (createUser(userRequest)){
+            registeredClientRepository.save(registeredClient);
+            return AccessToken.builder()
+                    .clientId(clientCredentials[0])
+                    .clientSecret(clientCredentials[1])
+                    .build();
+        }else{
+            throw new IllegalArgumentException("User creation failed");
+        }
+
+
+    }
+
+    public boolean createUser(CreateUserRequest request){
+//        Check if the user exists
+        Optional<AppUser> userUsername = appUserRepository.findByUsername(request.getUsername());
+        Optional<AppUser> userEmail = appUserRepository.findAppUserByEmail(request.getEmail());
+        if (userUsername.isPresent()){
+            throw new ParameterExists("Username already exists");
+        }
+        if ( userEmail.isPresent()){
+            throw  new ParameterExists("Email already exists");
+        }
+
+        AppUser userRequest = AppUser.builder()
+                .username(request.getUsername())
+                .email(request.getEmail())
+                .roles("USER,PARENT")
+                .password(passwordEncoder.encode(request.getPassword()))
+                .build();
+       AppUser appUser =  appUserRepository.save(userRequest);
+      return !appUser.getUsername().isEmpty();
     }
 
 }

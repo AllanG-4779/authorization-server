@@ -1,9 +1,13 @@
 package  com.allang.authorizationserver.repository;
 
+import com.allang.authorizationserver.entity.AppUser;
 import com.allang.authorizationserver.entity.Client;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.jackson2.SecurityJackson2Modules;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
@@ -28,7 +32,6 @@ public class JpaRegisteredClientRepository implements RegisteredClientRepository
     public JpaRegisteredClientRepository(ClientRepository clientRepository) {
         Assert.notNull(clientRepository, "clientRepository cannot be null");
         this.clientRepository = clientRepository;
-
         ClassLoader classLoader = JpaRegisteredClientRepository.class.getClassLoader();
         List<Module> securityModules = SecurityJackson2Modules.getModules(classLoader);
         this.objectMapper.registerModules(securityModules);
@@ -38,21 +41,19 @@ public class JpaRegisteredClientRepository implements RegisteredClientRepository
     @Override
     public void save(RegisteredClient registeredClient) {
         Assert.notNull(registeredClient, "registeredClient cannot be null");
+//        Find the client
         this.clientRepository.save(toEntity(registeredClient));
     }
-
     @Override
     public RegisteredClient findById(String id) {
         Assert.hasText(id, "id cannot be empty");
         return this.clientRepository.findById(id).map(this::toObject).orElse(null);
     }
-
     @Override
     public RegisteredClient findByClientId(String clientId) {
         Assert.hasText(clientId, "clientId cannot be empty");
         return this.clientRepository.findByClientId(clientId).map(this::toObject).orElse(null);
     }
-
 //    Given Client from the database, convert it to a registered client for use in oauth2
 public RegisteredClient toObject(Client client) {
         Set<String> clientAuthenticationMethods = StringUtils.commaDelimitedListToSet(
@@ -87,8 +88,6 @@ public RegisteredClient toObject(Client client) {
             Map<String, Object> tokenSettingsMap = parseMap(client.getTokenSettings());
             builder.tokenSettings(TokenSettings.withSettings(tokenSettingsMap).build());
         }
-
-
         return builder.build();
     }
 // Given a registered client, convert it to an entity to save in database
@@ -96,11 +95,9 @@ public RegisteredClient toObject(Client client) {
         List<String> clientAuthenticationMethods = new ArrayList<>(registeredClient.getClientAuthenticationMethods().size());
         registeredClient.getClientAuthenticationMethods().forEach(clientAuthenticationMethod ->
                 clientAuthenticationMethods.add(clientAuthenticationMethod.getValue()));
-
         List<String> authorizationGrantTypes = new ArrayList<>(registeredClient.getAuthorizationGrantTypes().size());
         registeredClient.getAuthorizationGrantTypes().forEach(authorizationGrantType ->
                 authorizationGrantTypes.add(authorizationGrantType.getValue()));
-
         Client entity = new Client();
         entity.setId(registeredClient.getId());
         entity.setClientId(registeredClient.getClientId());

@@ -74,7 +74,6 @@ public class JpaOAuth2AuthorizationService implements OAuth2AuthorizationService
     @Override
     public OAuth2Authorization findByToken(String token, OAuth2TokenType tokenType) {
         Assert.hasText(token, "token cannot be empty");
-
         Optional<Authorization> result;
         if (tokenType == null) {
             result = this.authorizationRepository.findByStateOrAuthorizationCodeValueOrAccessTokenValueOrRefreshTokenValue(token);
@@ -222,9 +221,9 @@ public class JpaOAuth2AuthorizationService implements OAuth2AuthorizationService
         }
     }
 
-    private Map<String, Object> parseMap(String data) {
+    public Map<String, Object> parseMap(String data) {
         try {
-            return this.objectMapper.readValue(data, new TypeReference<Map<String, Object>>() {
+            return this.objectMapper.readValue(data, new TypeReference<>() {
             });
         } catch (Exception ex) {
             throw new IllegalArgumentException(ex.getMessage(), ex);

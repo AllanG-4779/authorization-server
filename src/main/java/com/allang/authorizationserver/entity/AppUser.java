@@ -17,6 +17,8 @@ public class AppUser {
     private String id;
     @Column(unique = true, nullable = false)
     private String username;
+    @Column()
+    String roles;
     @Column(nullable = false)
     private String password;
     @Column(unique = true, nullable = false)

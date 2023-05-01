@@ -2,7 +2,6 @@ package com.allang.authorizationserver.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 
 import java.time.Instant;
 
